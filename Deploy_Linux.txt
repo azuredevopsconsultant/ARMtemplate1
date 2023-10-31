@@ -1,0 +1,83 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+  "contentVersion": "1.0.0.0",
+  "resources": [
+    {
+      "type": "Microsoft.Authorization/policyDefinitions",
+      "name": "DeployDependencyAgentForLinux",
+      "apiVersion": "2020-09-01",
+      "properties": {
+        "displayName": "Deploy Dependency Agent on Linux VMs",
+        "policyType": "Custom",
+        "mode": "All",
+        "description": "Ensures Linux VMs have the Dependency Agent installed.",
+        "metadata": {
+          "version": "1.0.0",
+          "category": "Compute"
+        },
+        "policyRule": {
+          "if": {
+            "allOf": [
+              {
+                "field": "type",
+                "equals": "Microsoft.Compute/virtualMachines"
+              },
+              {
+                "field": "Microsoft.Compute/virtualMachines/osProfile.linuxConfiguration",
+                "exists": "true"
+              },
+              {
+                "field": "Microsoft.Compute/virtualMachines/extensions/type",
+                "notEquals": "DependencyAgentLinux"
+              }
+            ]
+          },
+          "then": {
+            "effect": "deployIfNotExists",
+            "details": {
+              "type": "Microsoft.Compute/virtualMachines/extensions",
+              "name": "MicrosoftMonitoringAgent",
+              "roleDefinitionIds": [
+                "/providers/Microsoft.Authorization/roleDefinitions/b24988ac-6180-42a0-ab88-20f7382dd24c"
+              ],
+              "existenceCondition": {
+                "allOf": [
+                  {
+                    "field": "Microsoft.Compute/virtualMachines/extensions/type",
+                    "equals": "DependencyAgentLinux"
+                  }
+                ]
+              },
+              "deployment": {
+                "properties": {
+                  "template": {
+                    "$schema": "https://schema.management.azure.com/schemas/2015-01-01/deploymentTemplate.json#",
+                    "contentVersion": "1.0.0.0",
+                    "resources": [
+                      {
+                        "type": "Microsoft.Compute/virtualMachines/extensions",
+                        "name": "[concat(parameters('vmName'), '/MicrosoftMonitoringAgent')]",
+                        "apiVersion": "2020-06-01",
+                        "properties": {
+                          "publisher": "Microsoft.EnterpriseCloud.Monitoring",
+                          "type": "DependencyAgentLinux",
+                          "typeHandlerVersion": "9.4",
+                          "autoUpgradeMinorVersion": true
+                        }
+                      }
+                    ]
+                  },
+                  "parameters": {
+                    "vmName": {
+                      "value": "[field('fullName')]"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  ]
+}
